@@ -16,6 +16,7 @@
 // Opcodes for instr formats
 typedef enum {
     FMT_R       = 0b0110011,
+    FMT_R_WORD  = 0b0111011,
     FMT_I_LOAD  = 0b0000011,
     FMT_I_JALR  = 0b1100111,
     FMT_I_ARITH = 0b0010011,
