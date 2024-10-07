@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "rv_emu.h"
 #include "bits.h"
@@ -78,6 +79,9 @@ void emu_r_type(struct rv_state *rsp, uint32_t iw) {
     }
 
     rsp->pc += 4; // Next instruction
+
+    rsp->analysis.i_count += 1;
+    rsp->analysis.ir_count += 1;
 }
 
 void emu_i_arith(struct rv_state *rsp, uint32_t iw) {
@@ -100,6 +104,9 @@ void emu_i_arith(struct rv_state *rsp, uint32_t iw) {
     }
     
      rsp->pc += 4; // Next instruction
+
+     rsp->analysis.i_count += 1;
+     rsp->analysis.ir_count += 1;
 }
 
 void emu_i_load(struct rv_state *rsp, uint32_t iw) {
@@ -126,11 +133,14 @@ void emu_i_load(struct rv_state *rsp, uint32_t iw) {
     }
 
     rsp->pc += 4; // Next instruction
+
+    rsp->analysis.i_count += 1;
+    rsp->analysis.ld_count += 1;
 }
 
 void emu_b_type(struct rv_state *rsp, uint32_t iw) {
-    uint32_t rs1 = get_rs1(iw);
-    uint32_t rs2 = get_rs2(iw);
+    uint32_t v1 = rsp->regs[get_rs1(iw)];
+    uint32_t v2 = rsp->regs[get_rs2(iw)];
     uint32_t funct3 = get_funct3(iw);
 
     uint64_t imm11_5, imm4_0, uimm;
@@ -140,38 +150,35 @@ void emu_b_type(struct rv_state *rsp, uint32_t iw) {
     imm4_0 = get_bits(iw, 7, 5);
     uimm = (imm11_5 << 5) | imm4_0;
     imm = sign_extend(uimm, 12);
+
+    bool taken = false;
+
         
-    if (funct3 == 0b100) {
-        // BLT & BGT
-        if ((int64_t)rsp->regs[rs1] < (int64_t)rsp->regs[rs2]) {
-            rsp->pc += imm;            
-        } else {
-            rsp->pc += 4;
-        }
-    } else if (funct3 == 0b101) {
-        // BGE
-        if ((int64_t)rsp->regs[rs1] >= (int64_t)rsp->regs[rs2]) {
-            rsp->pc += imm;
-        } else {
-            rsp->pc += 4;
-        }
-    } else if (funct3 == 0b000) {   // beq
-        if (rsp->regs[rs1] == rsp->regs[rs2]) {
-            rsp->pc += imm;
-        } else {
-            rsp->pc += 4;
-        } 
+    if (funct3 == 0b000) {
+        // BEQ
+        taken = (v1 == v2);
     } else if (funct3 == 0b001) {
         // BNE
-        if ((int64_t)rsp->regs[rs1] != (int64_t)rsp-> regs[rs2]) {
-            rsp->pc += imm;
-        } else {
-            rsp->pc += 4;
-        }
+        taken = (v1 != v2);
+    } else if (funct3 == 0b100) {
+        // BLT
+        taken = ((int64_t)v1 < (int64_t)v2);
+    } else if (funct3 == 0b101) {
+        // BGE
+        taken = ((int64_t)v1 >= (int64_t)v2);
     } else {
         unsupported("B-type funct3", funct3);
     }
 
+    if (taken) {
+        rsp->pc += imm;
+        rsp->analysis.b_taken += 1;
+    } else {
+        rsp->pc += 4;
+        rsp->analysis.b_not_taken += 1;
+    }
+
+    rsp->analysis.i_count += 1;
 }
 
 void emu_s_type(struct rv_state *rsp, uint32_t iw) {
@@ -203,6 +210,9 @@ void emu_s_type(struct rv_state *rsp, uint32_t iw) {
     }
     
     rsp->pc += 4;
+
+    rsp->analysis.i_count += 1;
+    rsp->analysis.st_count += 1;
 }
 
 void emu_j_type(struct rv_state *rsp, uint32_t iw) {
@@ -215,17 +225,15 @@ void emu_j_type(struct rv_state *rsp, uint32_t iw) {
 
     uint32_t uimm = (imm_20 << 20) | (imm_19_12 << 12) | (imm_11 << 11) | (imm_10_1 << 1);
     int64_t imm = sign_extend(uimm, 20);
-    // printf("Immediate (imm): %ld\n", imm);
-
-    // printf("PC before JAL: %lx, rd: %u, offset: %ld\n", rsp->pc, rd, imm);
     
     if (rd != 0) {
         rsp->regs[rd] = ((uint64_t)rsp->pc) + 4;
     }
 
     rsp->pc += imm;
-    
-    // printf("PC before JAL: %lx, rd: %u, offset: %ld\n", rsp->pc, rd, imm);
+
+    rsp->analysis.i_count += 1;
+    rsp->analysis.j_count += 1;
     
 }
 
@@ -240,6 +248,9 @@ void emu_jalr(struct rv_state *rsp, uint32_t iw) {
     }
 
     rsp->pc = rsp->regs[rs1] + imm;
+
+    rsp->analysis.i_count += 1;
+    rsp->analysis.j_count += 1;
 }
 
 static void rv_one(struct rv_state *state) {
