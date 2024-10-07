@@ -43,6 +43,8 @@ void emu_r_type(struct rv_state *rsp, uint32_t iw) {
     uint32_t funct3 = get_funct3(iw);
     uint32_t funct7 = get_funct7(iw);
 
+    uint32_t imm_3 = get_bit(iw, 3);
+
     if (funct3 == 0b000 && funct7 == 0b0000000) {
         // ADD
         rsp->regs[rd] = rsp->regs[rs1] + rsp->regs[rs2];
@@ -61,6 +63,16 @@ void emu_r_type(struct rv_state *rsp, uint32_t iw) {
     } else if (funct3 == 0b101 && funct7 == 0b0000000) {
         // SRL
         rsp->regs[rd] = rsp->regs[rs1] >> rsp->regs[rs2];
+    } else if (funct3 == 0b001 && funct7 == 0b0000000) {
+        if (imm_3)
+            rsp->regs[rd] = ((int32_t)rsp->regs[rs1]) << ((int32_t)rsp->regs[rs2]); // SLLW
+        else
+            rsp->regs[rd] = rsp->regs[rs1] << rsp->regs[rs2];   // SLL
+    } else if (funct3 == 0b101 && funct7 == 0b0100000) {
+        if (imm_3)
+            rsp->regs[rd] = ((int32_t)rsp->regs[rs1]) >> ((int32_t)rsp->regs[rs2]); // SRAW
+        else
+            rsp->regs[rd] = ((int64_t)rsp->regs[rs1]) >> rsp->regs[rs2]; // SRA
     } else {
         unsupported("R-type funct3", funct3);
     }
@@ -242,7 +254,8 @@ static void rv_one(struct rv_state *state) {
 
     switch (opcode) {
         case FMT_R:
-            // R-type
+        case FMT_R_WORD:
+            // R-type & R-type word
             emu_r_type(state, iw);
             break;
         case FMT_I_ARITH:
