@@ -254,14 +254,10 @@ void emu_jalr(struct rv_state *rsp, uint32_t iw) {
 }
 
 static void rv_one(struct rv_state *state) {
-    uint32_t iw  = *((uint32_t*) state->pc);
-    // iw = cache_lookup(&state->i_cache, (uint64_t) state->pc);
+    // uint32_t iw  = *((uint32_t*) state->pc);
+    uint32_t iw = cache_lookup(&state->i_cache, (uint64_t) state->pc);
 
     uint32_t opcode = get_opcode(iw);
-
-    // printf("iw: %08x\n", iw);
-    // printf("Opcode: %08x\n", opcode);
-
 
     switch (opcode) {
         case FMT_R:
