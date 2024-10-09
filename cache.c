@@ -160,8 +160,8 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     struct cache_slot_st *slot_invalid = NULL;
 
     // Check each slot in the set
-    for (int i = 0; i < 4; i += 1) {
-        slot = &csp->slots[set_base + i];
+    for (int i = 0; i < csp->ways; i += 1) {
+        slot = &csp->slots[set_base + i]; // 
         if (slot->valid) {
             if (tag == slot->tag) {
                 verbose("  cache tag hit for set %d way %d tag %X addr %lX\n",

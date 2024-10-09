@@ -153,7 +153,6 @@ void emu_b_type(struct rv_state *rsp, uint32_t iw) {
 
     bool taken = false;
 
-        
     if (funct3 == 0b000) {
         // BEQ
         taken = (v1 == v2);
@@ -197,7 +196,7 @@ void emu_s_type(struct rv_state *rsp, uint32_t iw) {
     uint64_t target_address = rsp->regs[rs1] + imm;
     
     if (funct3 == 0b000) {
-        // SW
+        // SB
         *((uint8_t *) target_address) = ((uint8_t)rsp->regs[rs2]);
     } else if (funct3 == 0b010) {
         // SW
