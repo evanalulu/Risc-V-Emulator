@@ -188,7 +188,7 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
         } else {
             // Always pick first slot in set - CHANGED TO LRU
             slot = &(csp->slots[set_base]);
-            for (int i = 1; i < 4; i++) {
+            for (int i = 1; i < csp->ways; i++) {
                 if (csp->slots[set_base + i].timestamp < slot->timestamp)
                     slot = &(csp->slots[set_base + i]); // Update the timestamp for each slot
             }

@@ -65,7 +65,7 @@ void emu_r_type(struct rv_state *rsp, uint32_t iw) {
         // SRL
         rsp->regs[rd] = rsp->regs[rs1] >> rsp->regs[rs2];
     } else if (funct3 == 0b001 && funct7 == 0b0000000) {
-        if (imm_3)
+        if (imm_3) // TODO: Bring comments up
             rsp->regs[rd] = ((int32_t)rsp->regs[rs1]) << ((int32_t)rsp->regs[rs2]); // SLLW
         else
             rsp->regs[rd] = rsp->regs[rs1] << rsp->regs[rs2];   // SLL
@@ -233,7 +233,6 @@ void emu_j_type(struct rv_state *rsp, uint32_t iw) {
 
     rsp->analysis.i_count += 1;
     rsp->analysis.j_count += 1;
-    
 }
 
 void emu_jalr(struct rv_state *rsp, uint32_t iw) {
@@ -254,6 +253,7 @@ void emu_jalr(struct rv_state *rsp, uint32_t iw) {
 
 static void rv_one(struct rv_state *state) {
     // uint32_t iw  = *((uint32_t*) state->pc);
+    // TODO: analysis.i_count++
     uint32_t iw = cache_lookup(&state->i_cache, (uint64_t) state->pc);
 
     uint32_t opcode = get_opcode(iw);
