@@ -37,6 +37,17 @@ static uint32_t get_rs2(uint32_t iw) {
     return get_bits(iw, 20, 5);
 }
 
+int64_t get_imm_sb(uint32_t iw) {
+    uint64_t imm11_5, imm4_0, uimm;
+    int64_t imm;
+
+    imm11_5 = get_bits(iw, 25, 7);
+    imm4_0 = get_bits(iw, 7, 5);
+    uimm = (imm11_5 << 5) | imm4_0;
+    imm = sign_extend(uimm, 12);
+    return imm;
+}
+
 void emu_r_type(struct rv_state *rsp, uint32_t iw) {
     uint32_t rd = get_rd(iw);
     uint32_t rs1 = get_rs1(iw);
@@ -65,22 +76,27 @@ void emu_r_type(struct rv_state *rsp, uint32_t iw) {
         // SRL
         rsp->regs[rd] = rsp->regs[rs1] >> rsp->regs[rs2];
     } else if (funct3 == 0b001 && funct7 == 0b0000000) {
-        if (imm_3) // TODO: Bring comments up
-            rsp->regs[rd] = ((int32_t)rsp->regs[rs1]) << ((int32_t)rsp->regs[rs2]); // SLLW
-        else
-            rsp->regs[rd] = rsp->regs[rs1] << rsp->regs[rs2];   // SLL
+        if (imm_3) {
+            // SLLW
+            rsp->regs[rd] = ((int32_t)rsp->regs[rs1]) << ((int32_t)rsp->regs[rs2]);
+        } else {
+           // SLL
+            rsp->regs[rd] = rsp->regs[rs1] << rsp->regs[rs2];
+        }
     } else if (funct3 == 0b101 && funct7 == 0b0100000) {
-        if (imm_3)
-            rsp->regs[rd] = ((int32_t)rsp->regs[rs1]) >> ((int32_t)rsp->regs[rs2]); // SRAW
-        else
-            rsp->regs[rd] = ((int64_t)rsp->regs[rs1]) >> rsp->regs[rs2]; // SRA
+        if (imm_3) {
+            // SRAW
+            rsp->regs[rd] = ((int32_t)rsp->regs[rs1]) >> ((int32_t)rsp->regs[rs2]);
+        } else {
+            // SRA
+            rsp->regs[rd] = ((int64_t)rsp->regs[rs1]) >> rsp->regs[rs2];
+        }
     } else {
         unsupported("R-type funct3", funct3);
     }
 
     rsp->pc += 4; // Next instruction
 
-    rsp->analysis.i_count += 1;
     rsp->analysis.ir_count += 1;
 }
 
@@ -105,7 +121,6 @@ void emu_i_arith(struct rv_state *rsp, uint32_t iw) {
     
      rsp->pc += 4; // Next instruction
 
-     rsp->analysis.i_count += 1;
      rsp->analysis.ir_count += 1;
 }
 
@@ -134,7 +149,6 @@ void emu_i_load(struct rv_state *rsp, uint32_t iw) {
 
     rsp->pc += 4; // Next instruction
 
-    rsp->analysis.i_count += 1;
     rsp->analysis.ld_count += 1;
 }
 
@@ -142,14 +156,7 @@ void emu_b_type(struct rv_state *rsp, uint32_t iw) {
     uint32_t v1 = rsp->regs[get_rs1(iw)];
     uint32_t v2 = rsp->regs[get_rs2(iw)];
     uint32_t funct3 = get_funct3(iw);
-
-    uint64_t imm11_5, imm4_0, uimm;
-    int64_t imm;
-
-    imm11_5 = get_bits(iw, 25, 7);
-    imm4_0 = get_bits(iw, 7, 5);
-    uimm = (imm11_5 << 5) | imm4_0;
-    imm = sign_extend(uimm, 12);
+    int64_t imm = get_imm_sb(iw);
 
     bool taken = false;
 
@@ -176,22 +183,13 @@ void emu_b_type(struct rv_state *rsp, uint32_t iw) {
         rsp->pc += 4;
         rsp->analysis.b_not_taken += 1;
     }
-
-    rsp->analysis.i_count += 1;
 }
 
 void emu_s_type(struct rv_state *rsp, uint32_t iw) {
     uint32_t rs1 = get_rs1(iw);
     uint32_t rs2 = get_rs2(iw);
     uint32_t funct3 = get_funct3(iw);
-    
-    uint64_t imm11_5, imm4_0, uimm;
-    int64_t imm;
-
-    imm11_5 = get_bits(iw, 25, 7);
-    imm4_0 = get_bits(iw, 7, 5);
-    uimm = (imm11_5 << 5) | imm4_0;
-    imm = sign_extend(uimm, 12);
+    uint64_t imm = get_imm_sb(iw);
 
     uint64_t target_address = rsp->regs[rs1] + imm;
     
@@ -210,7 +208,6 @@ void emu_s_type(struct rv_state *rsp, uint32_t iw) {
     
     rsp->pc += 4;
 
-    rsp->analysis.i_count += 1;
     rsp->analysis.st_count += 1;
 }
 
@@ -231,7 +228,6 @@ void emu_j_type(struct rv_state *rsp, uint32_t iw) {
 
     rsp->pc += imm;
 
-    rsp->analysis.i_count += 1;
     rsp->analysis.j_count += 1;
 }
 
@@ -247,7 +243,6 @@ void emu_jalr(struct rv_state *rsp, uint32_t iw) {
 
     rsp->pc = rsp->regs[rs1] + imm;
 
-    rsp->analysis.i_count += 1;
     rsp->analysis.j_count += 1;
 }
 
@@ -289,9 +284,11 @@ static void rv_one(struct rv_state *state) {
             emu_jalr(state, iw);
             break;
         default:
-            unsupported("Unknown opcode: ", opcode);
-                
+            unsupported("Unknown opcode: ", opcode);         
     }
+
+    state->analysis.i_count += 1;
+
 
 #if DEBUG
     printf("iw: %08x\n", iw);
