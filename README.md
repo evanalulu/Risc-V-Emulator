@@ -18,7 +18,6 @@ The emulator decodes and executes a subset of RISC-V instructions, simulating th
   - `countll_s`
   - `swap_s`
   - `sort_s`
-- **Your Implementation**:
   - `fib_rec_s`
 
 ### **2. Dynamic Analysis**
