@@ -56,7 +56,12 @@ The project includes a processor cache simulator supporting the following config
 
 ## How to Run
 
-1. **Compile the Emulator**:
+**Compile the Emulator**:
    Use the provided `Makefile` to compile the project:
    ```bash
    make
+   ./project04 <program_name>
+```
+
+## Acknowledgements
+This project is part of the coursework for CS315: Computer Architecture. Contributions include in-class lectures, labs, and resources such as the Guide to Cache Memory and autograder test cases.
